@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registration } from './schema/registration.schema';
@@ -48,6 +48,8 @@ export class RegistrationService {
             },
           });
         return { flutterwavePaymentUrl: paymentData };
+      } else if (isPaid) {
+        throw new BadRequestException('You have already registered');
       } else {
         const registrationData = {
           ...createRegistrationDto,
@@ -79,7 +81,7 @@ export class RegistrationService {
         }
       }
     } else {
-      throw new Error('Registration failed');
+      throw new BadRequestException('Registration failed');
     }
   }
 
