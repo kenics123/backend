@@ -41,7 +41,7 @@ export class RegistrationService {
             customer: {
               name: createRegistrationDto.firstName,
               email: createRegistrationDto.email,
-              phonenumber: createRegistrationDto.phoneNumber,
+              phonenumber: createRegistrationDto.phone,
             },
             meta: {
               type: 'Registration',
@@ -50,38 +50,38 @@ export class RegistrationService {
         return { flutterwavePaymentUrl: paymentData };
       } else if (isPaid) {
         throw new BadRequestException('You have already registered');
-      } else {
-        const registrationData = {
-          ...createRegistrationDto,
-          images: files,
-        };
-
-        const registration = new this.registrationModel(registrationData);
-        const save = await registration.save();
-
-        if (save) {
-          const paymentData: FlutterwaveResponse =
-            await this.paymentService.initiatePayment({
-              amount: 2000,
-              currency: 'NGN',
-              tx_ref: save.paymentRef,
-              redirect_url: this.callBackUrl,
-              payment_options: 'card, mobilemoney, ussd',
-              customer: {
-                name: createRegistrationDto.firstName,
-                email: createRegistrationDto.email,
-                phonenumber: createRegistrationDto.phoneNumber,
-              },
-              meta: {
-                type: 'Registration',
-              },
-            });
-
-          return { flutterwavePaymentUrl: paymentData };
-        }
       }
     } else {
-      throw new BadRequestException('Registration failed');
+      const registrationData = {
+        ...createRegistrationDto,
+        photos: files,
+      };
+
+      const registration = new this.registrationModel(registrationData);
+      const save = await registration.save();
+
+      if (save) {
+        const paymentData: FlutterwaveResponse =
+          await this.paymentService.initiatePayment({
+            amount: 2000,
+            currency: 'NGN',
+            tx_ref: save.paymentRef,
+            redirect_url: this.callBackUrl,
+            payment_options: 'card, mobilemoney, ussd',
+            customer: {
+              name: registrationData.firstName,
+              email: registrationData.email,
+              phonenumber: registrationData.phone,
+            },
+            meta: {
+              type: 'Registration',
+            },
+          });
+
+        return { flutterwavePaymentUrl: paymentData };
+      } else {
+        throw new BadRequestException('Registration failed');
+      }
     }
   }
 

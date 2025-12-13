@@ -3,6 +3,31 @@ import { HydratedDocument } from 'mongoose';
 
 export type RegistrationDocument = HydratedDocument<Registration>;
 
+class SocialMedia {
+  @Prop({ default: '' })
+  facebook: string;
+
+  @Prop({ default: '' })
+  instagram: string;
+
+  @Prop({ default: '' })
+  twitter: string;
+
+  @Prop({ default: '' })
+  tiktok: string;
+}
+
+class EmergencyContact {
+  @Prop({ required: true })
+  name: string;
+
+  @Prop({ required: true })
+  relationship: string;
+
+  @Prop({ required: true })
+  phone: string;
+}
+
 @Schema({ timestamps: true })
 export class Registration {
   @Prop({ required: true })
@@ -15,13 +40,13 @@ export class Registration {
   email: string;
 
   @Prop({ required: true })
-  phoneNumber: string;
+  phone: string;
+
+  @Prop({ required: true })
+  dateOfBirth: string;
 
   @Prop({ required: true })
   category: string;
-
-  @Prop({ required: true })
-  address: string;
 
   @Prop({ required: true })
   height: string;
@@ -33,27 +58,22 @@ export class Registration {
   bio: string;
 
   @Prop({ required: true })
-  modellingExp: string;
+  experience: string;
+
+  @Prop()
+  achievements?: string;
+
+  @Prop({ type: SocialMedia, _id: false })
+  socialMedia: SocialMedia;
+
+  @Prop({ type: EmergencyContact, _id: false })
+  emergencyContact: EmergencyContact;
 
   @Prop({ type: [String], default: [] })
-  socials: string[];
+  photos: string[];
 
-  @Prop({
-    type: {
-      name: { type: String, required: true },
-      relationship: { type: String, required: true },
-      number: { type: String, required: true },
-    },
-    required: true,
-  })
-  emergencyContact: {
-    name: string;
-    relationship: string;
-    number: string;
-  };
-
-  @Prop({ type: [String], default: [] })
-  images: string[];
+  @Prop({ required: true })
+  termsAccepted: boolean;
 
   @Prop({ type: [String], default: [] })
   videos: string[];

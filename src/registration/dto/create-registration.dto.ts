@@ -1,19 +1,40 @@
-import { Allow, IsObject, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsObject,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 
+export class SocialMedia {
+  @IsString()
+  @ApiProperty()
+  facebook: string;
+
+  @IsString()
+  @ApiProperty()
+  instagram: string;
+
+  @IsString()
+  @ApiProperty()
+  tiktok: string;
+
+  @IsString()
+  @ApiProperty()
+  twitter: string;
+}
+
 export class EmergencyContactDto {
-  @Allow()
   @IsString()
   @ApiProperty()
   name: string;
 
-  @Allow()
   @IsString()
   @ApiProperty()
   relationship: string;
 
-  @Allow()
   @IsString()
   @ApiProperty()
   number: string;
@@ -33,15 +54,11 @@ export class CreateRegistrationDto {
 
   @IsString()
   @ApiProperty({ description: 'User phone number' })
-  phoneNumber: string;
+  phone: string;
 
   @IsString()
   @ApiProperty({ description: 'User category' })
   category: string;
-
-  @IsString()
-  @ApiProperty({ description: 'User address' })
-  address: string;
 
   @IsString()
   @ApiProperty({ description: 'User height' })
@@ -55,31 +72,42 @@ export class CreateRegistrationDto {
   @ApiProperty({ description: 'User bio' })
   bio: string;
 
+  @IsBoolean()
+  @ApiProperty({ description: 'User terms accepted' })
+  termsAccepted: boolean;
+
   @IsString()
   @ApiProperty({ description: 'User modelling experience' })
-  modellingExp: string;
+  experience: string;
 
-  @IsString()
-  @ApiProperty({ description: 'User socials' })
-  socials: string;
+  @IsDateString()
+  @ApiProperty({ description: 'User Date of birth' })
+  dateOfBirth: string;
 
+  @IsObject()
   @Transform(({ value }) => {
-    // If it's already an object, return it
-    if (typeof value === 'object' && value !== null) {
-      return value;
-    }
-    // If it's a string, try to parse it
     if (typeof value === 'string') {
-      try {
-        return JSON.parse(value);
-      } catch (e) {
-        return value; // Return as-is, let validation catch the error
-      }
+      return JSON.parse(value);
     }
     return value;
   })
+  @ValidateNested()
+  @Type(() => SocialMedia)
+  @ApiProperty({
+    description: 'Social media links',
+    type: () => SocialMedia,
+  })
+  socialMedia: SocialMedia;
+
   @IsObject()
-  //   @ValidateNested()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return JSON.parse(value);
+    }
+
+    return value;
+  })
+  @ValidateNested()
   @Type(() => EmergencyContactDto)
   @ApiProperty({
     description: 'User emergency contact',

@@ -30,15 +30,24 @@ export class RegistrationController {
       properties: {
         firstName: { type: 'string' },
         lastName: { type: 'string' },
-        email: { type: 'string' },
-        phoneNumber: { type: 'string' },
+        email: { type: 'string', format: 'email' },
+        phone: { type: 'string' },
+        dateOfBirth: { type: 'string', format: 'date' },
         category: { type: 'string' },
-        address: { type: 'string' },
         height: { type: 'string' },
         weight: { type: 'string' },
+        termsAccepted: { type: 'boolean' },
         bio: { type: 'string' },
-        modellingExp: { type: 'string' },
-        socials: { type: 'string' },
+        experience: { type: 'string' },
+        socialMedia: {
+          type: 'object',
+          properties: {
+            facebook: { type: 'string' },
+            twitter: { type: 'string' },
+            instagram: { type: 'string' },
+            tiktok: { type: 'string' },
+          },
+        },
         emergencyContact: {
           type: 'object',
           properties: {
@@ -58,13 +67,14 @@ export class RegistrationController {
     },
   })
   @UseInterceptors(
-    FilesInterceptor('files', 2, {
+    FilesInterceptor('files', 6, {
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
   async create(
+    @Body()
+    createRegistrationDto: CreateRegistrationDto,
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() createRegistrationDto: CreateRegistrationDto,
   ) {
     const uploadedImages =
       await this.fileService.uploadMultipleToCloudinary(files);
