@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +14,17 @@ async function bootstrap() {
       enableImplicitConversion: true,
     },
   });
+  const corsOptions: CorsOptions = {
+    origin: [
+      'http://localhost:3000',
+      'https://frontend-dusky-three-85.vercel.app',
+    ],
+    // origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  };
+
+  app.enableCors(corsOptions);
   const config = new DocumentBuilder()
     .setTitle('Kenics API')
     .setDescription('The kenics API description')
