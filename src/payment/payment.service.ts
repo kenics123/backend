@@ -31,6 +31,9 @@ export class PaymentService {
       email: string;
       phonenumber?: string;
     };
+    customizations: {
+      title: string;
+    };
     meta: {
       type: string;
     };

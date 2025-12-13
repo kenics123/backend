@@ -46,6 +46,9 @@ export class RegistrationService {
             meta: {
               type: 'Registration',
             },
+            customizations: {
+              title: 'Kenics Contest',
+            },
           });
         return { flutterwavePaymentUrl: paymentData };
       } else if (isPaid) {
