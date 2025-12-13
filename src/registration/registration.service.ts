@@ -18,9 +18,21 @@ export class RegistrationService {
   ) {
     this.callBackUrl = this.configService.get<string>('CALLBACK_URL') || '';
   }
+
+  getAmount(category: string) {
+    const amountMap: Record<string, number> = {
+      baby: 10000,
+      teen: 20000,
+      miss: 40000,
+      mrs: 60000,
+    };
+
+    return amountMap[category] ?? 0; // default to 0 if not found
+  }
   async create(createRegistrationDto: CreateRegistrationDto, files: string[]) {
     //if email exit and payment status is unpaid, update payment ref and return payment url
     //else create new registration and return payment url
+    const amount = this.getAmount(createRegistrationDto?.category);
     const checkRegistration = await this.registrationModel.findOne({
       email: createRegistrationDto.email,
     });
@@ -33,7 +45,7 @@ export class RegistrationService {
         await checkRegistration.save();
         const paymentData: FlutterwaveResponse =
           await this.paymentService.initiatePayment({
-            amount: 2000,
+            amount: amount,
             currency: 'NGN',
             tx_ref: checkRegistration.paymentRef,
             redirect_url: this.callBackUrl,
@@ -66,7 +78,7 @@ export class RegistrationService {
       if (save) {
         const paymentData: FlutterwaveResponse =
           await this.paymentService.initiatePayment({
-            amount: 2000,
+            amount: amount,
             currency: 'NGN',
             tx_ref: save.paymentRef,
             redirect_url: this.callBackUrl,
