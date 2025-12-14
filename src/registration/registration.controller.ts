@@ -12,7 +12,7 @@ import { RegistrationService } from './registration.service';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { FileService } from 'src/file/file.service';
-import { ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiParam } from '@nestjs/swagger';
 import { CloudinaryUploadResponse } from 'src/types/types';
 
 @Controller('registration')
@@ -34,6 +34,7 @@ export class RegistrationController {
         phone: { type: 'string' },
         dateOfBirth: { type: 'string', format: 'date' },
         category: { type: 'string' },
+        achievements: { type: 'string' },
         height: { type: 'string' },
         weight: { type: 'string' },
         termsAccepted: { type: 'boolean' },
@@ -91,12 +92,18 @@ export class RegistrationController {
   }
 
   @Get(':id')
+  @ApiParam({
+    name: 'id',
+    description: 'Registration ID',
+    required: true,
+    type: 'string',
+  })
   findOne(@Param('id') id: string) {
-    return this.registrationService.findOne(+id);
+    return this.registrationService.findOne(id);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.registrationService.remove(+id);
+    return this.registrationService.remove(id);
   }
 }

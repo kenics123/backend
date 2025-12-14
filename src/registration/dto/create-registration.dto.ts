@@ -72,6 +72,10 @@ export class CreateRegistrationDto {
   @ApiProperty({ description: 'User bio' })
   bio: string;
 
+  @IsString()
+  @ApiProperty({ description: 'User achievements' })
+  achievements: string;
+
   @IsBoolean()
   @ApiProperty({ description: 'User terms accepted' })
   termsAccepted: boolean;

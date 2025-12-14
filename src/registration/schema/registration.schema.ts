@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Types } from 'mongoose';
 import { HydratedDocument } from 'mongoose';
+import { ContestantScore } from 'src/vote/schema/vote.schema';
 
 export type RegistrationDocument = HydratedDocument<Registration>;
 
@@ -83,6 +85,14 @@ export class Registration {
 
   @Prop({ required: true, default: Date.now().toString() })
   paymentRef: string;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'ContestantScore',
+    unique: true,
+    required: true,
+  })
+  score: ContestantScore;
 }
 
 export const registrationSchema = SchemaFactory.createForClass(Registration);

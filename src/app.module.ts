@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import dbConfig from './config/db.config';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentModule } from './payment/payment.module';
+import { VoteModule } from './vote/vote.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PaymentModule } from './payment/payment.module';
       useFactory: dbConfig,
     }),
     PaymentModule,
+    VoteModule,
   ],
 })
 export class AppModule {}

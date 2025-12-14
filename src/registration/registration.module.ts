@@ -6,11 +6,16 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Registration, registrationSchema } from './schema/registration.schema';
 import { PaymentService } from 'src/payment/payment.service';
 import { ConfigModule } from '@nestjs/config';
+import {
+  ContestantScore,
+  ContestantScoreSchema,
+} from 'src/vote/schema/vote.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Registration.name, schema: registrationSchema },
+      { name: ContestantScore.name, schema: ContestantScoreSchema },
     ]),
     ConfigModule,
   ],

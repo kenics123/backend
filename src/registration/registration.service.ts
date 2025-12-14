@@ -2,10 +2,11 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registration } from './schema/registration.schema';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { PaymentService } from 'src/payment/payment.service';
 import { ConfigService } from '@nestjs/config';
 import { FlutterwaveResponse } from 'src/types/types';
+import { ContestantScore } from 'src/vote/schema/vote.schema';
 
 @Injectable()
 export class RegistrationService {
@@ -13,6 +14,8 @@ export class RegistrationService {
   constructor(
     @InjectModel(Registration.name)
     private registrationModel: Model<Registration>,
+    @InjectModel(ContestantScore.name)
+    private scoreModel: Model<ContestantScore>,
     private paymentService: PaymentService,
     private configService: ConfigService,
   ) {
@@ -42,7 +45,6 @@ export class RegistrationService {
       );
       if (!isPaid) {
         checkRegistration.paymentRef = Date.now().toString();
-        await checkRegistration.save();
         const paymentData: FlutterwaveResponse =
           await this.paymentService.initiatePayment({
             amount: amount,
@@ -67,9 +69,12 @@ export class RegistrationService {
         throw new BadRequestException('You have already registered');
       }
     } else {
+      const initialScore = await this.scoreModel.create({});
+
       const registrationData = {
         ...createRegistrationDto,
         photos: files,
+        score: initialScore._id,
       };
 
       const registration = new this.registrationModel(registrationData);
@@ -104,14 +109,30 @@ export class RegistrationService {
   }
 
   findAll() {
-    return `This action returns all registration`;
+    return this.registrationModel
+      .find({
+        paymentStatus: {
+          $in: ['success', 'successful'],
+        },
+      })
+      .populate({
+        path: 'score',
+        model: 'ContestantScore',
+      })
+      .select(
+        'score firstName lastName bio photos height weight category dateOfBirth',
+      )
+      .exec();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} registration`;
+  findOne(id: string) {
+    return this.registrationModel.findById(id).populate({
+      path: 'score',
+      model: 'ContestantScore',
+    });
   }
 
-  remove(id: number) {
+  remove(id: string) {
     return `This action removes a #${id} registration`;
   }
 }
