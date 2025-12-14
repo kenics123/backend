@@ -19,7 +19,6 @@ async function bootstrap() {
       'http://localhost:3000',
       'https://frontend-dusky-three-85.vercel.app',
     ],
-    // origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   };

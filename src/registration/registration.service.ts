@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registration } from './schema/registration.schema';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { PaymentService } from 'src/payment/payment.service';
 import { ConfigService } from '@nestjs/config';
 import { FlutterwaveResponse } from 'src/types/types';
