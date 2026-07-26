@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Contact, ContactDocument } from './schema/contact.schema';
@@ -12,9 +16,19 @@ export class ContactService {
   ) {}
 
   create(dto: CreateContactDto) {
+    const email = dto.email?.toLowerCase().trim() || '';
+    const whatsapp = dto.whatsapp?.trim() || '';
+
+    if (!email && !whatsapp) {
+      throw new BadRequestException(
+        'Provide either an email or a WhatsApp number',
+      );
+    }
+
     return this.contactModel.create({
       name: dto.name.trim(),
-      email: dto.email.toLowerCase().trim(),
+      email,
+      whatsapp,
       subject: dto.subject?.trim() || '',
       message: dto.message.trim(),
     });

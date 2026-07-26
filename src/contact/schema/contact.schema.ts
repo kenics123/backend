@@ -8,8 +8,11 @@ export class Contact {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, lowercase: true, trim: true })
+  @Prop({ default: '', lowercase: true, trim: true })
   email: string;
+
+  @Prop({ default: '', trim: true })
+  whatsapp: string;
 
   @Prop({ default: '', trim: true })
   subject: string;
