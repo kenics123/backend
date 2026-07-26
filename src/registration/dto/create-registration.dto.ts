@@ -37,7 +37,7 @@ export class EmergencyContactDto {
 
   @IsString()
   @ApiProperty()
-  number: string;
+  phone: string;
 }
 
 export class CreateRegistrationDto {

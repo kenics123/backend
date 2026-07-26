@@ -64,7 +64,7 @@ export class RegistrationController {
           properties: {
             name: { type: 'string' },
             relationship: { type: 'string' },
-            number: { type: 'string' },
+            phone: { type: 'string' },
           },
         },
         files: {
