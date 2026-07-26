@@ -3,10 +3,12 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as crypto from 'crypto';
 import {
   Registration,
   RegistrationDocument,
@@ -18,6 +20,7 @@ export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
   private readonly baseUrl: string;
   private readonly secretKey: string;
+  private readonly webhookSecret: string;
 
   constructor(
     private configService: ConfigService,
@@ -29,6 +32,57 @@ export class PaymentService {
     this.baseUrl = (
       this.configService.get<string>('FLUTTERWAVE_BASE_URL') || ''
     ).replace(/\/+$/, '');
+    this.webhookSecret = (
+      this.configService.get<string>('WEBHOOK_SECRET') || ''
+    ).trim();
+  }
+
+  assertValidWebhookSignature(rawBody: Buffer, signature?: string): void {
+    if (!this.webhookSecret) {
+      throw new HttpException(
+        'Webhook is not configured. Set WEBHOOK_SECRET.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    if (!signature?.trim()) {
+      throw new UnauthorizedException('Missing webhook signature');
+    }
+
+    const trimmed = signature.trim();
+
+    // Flutterwave secret hash (verif-hash) — plain equality
+    if (this.timingSafeEqual(trimmed, this.webhookSecret)) {
+      return;
+    }
+
+    // Newer Flutterwave signature — HMAC of raw body
+    const mac = crypto
+      .createHmac('sha256', this.webhookSecret)
+      .update(rawBody)
+      .digest('base64');
+
+    const macHex = crypto
+      .createHmac('sha256', this.webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    const ok =
+      this.timingSafeEqual(trimmed, mac) ||
+      this.timingSafeEqual(trimmed, macHex);
+
+    if (!ok) {
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
+  }
+
+  private timingSafeEqual(a: string, b: string): boolean {
+    const left = Buffer.from(a, 'utf8');
+    const right = Buffer.from(b, 'utf8');
+    if (left.length !== right.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(left, right);
   }
 
   async initiatePayment(data: {
