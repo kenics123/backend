@@ -126,7 +126,12 @@ export class RegistrationService {
       existingForContest.bio = createRegistrationDto.bio;
       existingForContest.experience = createRegistrationDto.experience;
       existingForContest.achievements = createRegistrationDto.achievements;
-      existingForContest.socialMedia = createRegistrationDto.socialMedia;
+      existingForContest.socialMedia = {
+        facebook: createRegistrationDto.socialMedia?.facebook ?? '',
+        instagram: createRegistrationDto.socialMedia?.instagram ?? '',
+        twitter: createRegistrationDto.socialMedia?.twitter ?? '',
+        tiktok: createRegistrationDto.socialMedia?.tiktok ?? '',
+      };
       existingForContest.emergencyContact =
         createRegistrationDto.emergencyContact;
       existingForContest.termsAccepted = createRegistrationDto.termsAccepted;
@@ -167,7 +172,12 @@ export class RegistrationService {
       bio: createRegistrationDto.bio,
       experience: createRegistrationDto.experience,
       achievements: createRegistrationDto.achievements,
-      socialMedia: createRegistrationDto.socialMedia,
+      socialMedia: {
+        facebook: createRegistrationDto.socialMedia?.facebook ?? '',
+        instagram: createRegistrationDto.socialMedia?.instagram ?? '',
+        twitter: createRegistrationDto.socialMedia?.twitter ?? '',
+        tiktok: createRegistrationDto.socialMedia?.tiktok ?? '',
+      },
       emergencyContact: createRegistrationDto.emergencyContact,
       termsAccepted: createRegistrationDto.termsAccepted,
       contest: contest._id,

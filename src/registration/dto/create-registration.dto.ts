@@ -1,29 +1,54 @@
 import {
   IsBoolean,
   IsDateString,
-  IsObject,
+  IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 
-export class SocialMedia {
-  @IsString()
-  @ApiProperty()
-  facebook: string;
+function toNestedDto<T>(cls: new () => T, value: unknown): T | undefined {
+  if (value == null || value === '') {
+    return undefined;
+  }
 
-  @IsString()
-  @ApiProperty()
-  instagram: string;
+  let parsed: unknown = value;
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
 
-  @IsString()
-  @ApiProperty()
-  tiktok: string;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return undefined;
+  }
 
+  return plainToInstance(cls, parsed);
+}
+
+export class SocialMediaDto {
+  @IsOptional()
   @IsString()
-  @ApiProperty()
-  twitter: string;
+  @ApiPropertyOptional()
+  facebook?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional()
+  instagram?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional()
+  tiktok?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional()
+  twitter?: string;
 }
 
 export class EmergencyContactDto {
@@ -72,10 +97,12 @@ export class CreateRegistrationDto {
   @ApiProperty({ description: 'User bio' })
   bio: string;
 
+  @IsOptional()
   @IsString()
-  @ApiProperty({ description: 'User achievements' })
-  achievements: string;
+  @ApiPropertyOptional({ description: 'User achievements' })
+  achievements?: string;
 
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   @ApiProperty({ description: 'User terms accepted' })
   termsAccepted: boolean;
@@ -88,29 +115,17 @@ export class CreateRegistrationDto {
   @ApiProperty({ description: 'User Date of birth' })
   dateOfBirth: string;
 
-  @IsObject()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return JSON.parse(value);
-    }
-    return value;
-  })
+  @IsOptional()
+  @Transform(({ value }) => toNestedDto(SocialMediaDto, value))
   @ValidateNested()
-  @Type(() => SocialMedia)
-  @ApiProperty({
-    description: 'Social media links',
-    type: () => SocialMedia,
+  @Type(() => SocialMediaDto)
+  @ApiPropertyOptional({
+    description: 'Social media links (optional)',
+    type: () => SocialMediaDto,
   })
-  socialMedia: SocialMedia;
+  socialMedia?: SocialMediaDto;
 
-  @IsObject()
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return JSON.parse(value);
-    }
-
-    return value;
-  })
+  @Transform(({ value }) => toNestedDto(EmergencyContactDto, value))
   @ValidateNested()
   @Type(() => EmergencyContactDto)
   @ApiProperty({
