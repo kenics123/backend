@@ -13,7 +13,7 @@ export class AdminRegisterController {
     summary:
       'Create the first admin (Swagger/API only — not exposed in frontend)',
     description:
-      'Use this endpoint from Swagger to bootstrap the first admin account. Disabled after one admin exists.',
+      'Only available when ADMIN_CAN_REGISTER=true. Use this from Swagger to bootstrap the first admin account.',
   })
   create(@Body() createAdminDto: CreateAdminDto) {
     return this.adminService.create(createAdminDto);

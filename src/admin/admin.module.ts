@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
+import { config as loadEnv } from 'dotenv';
 import { AdminAuthController } from './admin-auth.controller';
 import { AdminRegisterController } from './admin-register.controller';
 import { AdminService } from './admin.service';
@@ -13,6 +14,17 @@ import {
   registrationSchema,
 } from 'src/registration/schema/registration.schema';
 import { Contact, ContactSchema } from 'src/contact/schema/contact.schema';
+
+// Load .env before deciding whether to register the Swagger endpoint.
+loadEnv();
+
+function adminCanRegister() {
+  return (
+    String(process.env.ADMIN_CAN_REGISTER ?? '')
+      .trim()
+      .toLowerCase() === 'true'
+  );
+}
 
 @Module({
   imports: [
@@ -37,7 +49,10 @@ import { Contact, ContactSchema } from 'src/contact/schema/contact.schema';
       }),
     }),
   ],
-  controllers: [AdminAuthController, AdminRegisterController],
+  controllers: [
+    AdminAuthController,
+    ...(adminCanRegister() ? [AdminRegisterController] : []),
+  ],
   providers: [AdminService, AdminAuthGuard],
   exports: [AdminService, AdminAuthGuard, JwtModule],
 })

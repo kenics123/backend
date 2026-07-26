@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
@@ -24,9 +25,22 @@ export class AdminService {
     private readonly registrationModel: Model<Registration>,
     @InjectModel(Contact.name) private readonly contactModel: Model<Contact>,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
+  private isAdminRegistrationEnabled() {
+    return (
+      String(this.configService.get<string>('ADMIN_CAN_REGISTER') ?? '')
+        .trim()
+        .toLowerCase() === 'true'
+    );
+  }
+
   async create(createAdminDto: CreateAdminDto) {
+    if (!this.isAdminRegistrationEnabled()) {
+      throw new ForbiddenException('Admin registration is disabled');
+    }
+
     const adminCount = await this.adminModel.countDocuments();
     if (adminCount > 0) {
       throw new ForbiddenException(
