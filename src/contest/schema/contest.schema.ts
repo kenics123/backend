@@ -14,6 +14,10 @@ export class Contest {
   @Prop({ required: true })
   year: number;
 
+  /** Main show / grand finale date */
+  @Prop({ required: true })
+  showDate: Date;
+
   @Prop({ default: false, index: true })
   isActive: boolean;
 }

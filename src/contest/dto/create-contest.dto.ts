@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateContestDto {
   @ApiProperty({ example: 'Kenics Pageant 2026' })
@@ -12,8 +17,10 @@ export class CreateContestDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ example: 2026 })
-  @IsInt()
-  @Min(2000)
-  year: number;
+  @ApiProperty({
+    example: '2026-12-20',
+    description: 'Main show / grand finale date',
+  })
+  @IsDateString()
+  showDate: string;
 }

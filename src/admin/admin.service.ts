@@ -11,11 +11,18 @@ import * as bcrypt from 'bcrypt';
 import { Admin } from './schema/admin.schema';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginAdminDto } from './dto/login-admin.dto';
+import { Contest } from 'src/contest/schema/contest.schema';
+import { Registration } from 'src/registration/schema/registration.schema';
+import { Contact } from 'src/contact/schema/contact.schema';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectModel(Admin.name) private readonly adminModel: Model<Admin>,
+    @InjectModel(Contest.name) private readonly contestModel: Model<Contest>,
+    @InjectModel(Registration.name)
+    private readonly registrationModel: Model<Registration>,
+    @InjectModel(Contact.name) private readonly contactModel: Model<Contact>,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -92,6 +99,54 @@ export class AdminService {
       id: admin._id,
       name: admin.name,
       email: admin.email,
+    };
+  }
+
+  async getDashboardStats() {
+    const [
+      totalContests,
+      activeContest,
+      totalRegistrations,
+      paidRegistrations,
+      unpaidRegistrations,
+      totalContacts,
+      unreadContacts,
+    ] = await Promise.all([
+      this.contestModel.countDocuments(),
+      this.contestModel.findOne({ isActive: true }).lean(),
+      this.registrationModel.countDocuments(),
+      this.registrationModel.countDocuments({
+        paymentStatus: { $in: ['success', 'successful'] },
+      }),
+      this.registrationModel.countDocuments({
+        paymentStatus: { $nin: ['success', 'successful'] },
+      }),
+      this.contactModel.countDocuments(),
+      this.contactModel.countDocuments({ isRead: false }),
+    ]);
+
+    const activeContestRegistrations = activeContest
+      ? await this.registrationModel.countDocuments({
+          contest: activeContest._id,
+        })
+      : 0;
+
+    return {
+      totalContests,
+      activeContest: activeContest
+        ? {
+            id: activeContest._id,
+            name: activeContest.name,
+            showDate: activeContest.showDate,
+            year: activeContest.year,
+          }
+        : null,
+      totalRegistrations,
+      paidRegistrations,
+      unpaidRegistrations,
+      activeContestRegistrations,
+      totalContacts,
+      unreadContacts,
     };
   }
 }

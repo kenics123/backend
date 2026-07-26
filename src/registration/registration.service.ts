@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registration, RegistrationDocument } from './schema/registration.schema';
@@ -44,6 +48,46 @@ export class RegistrationService {
     return { contest, category };
   }
 
+  private isPaidStatus(status: unknown): boolean {
+    return ['successful', 'success', 'succeeded'].includes(
+      String(status ?? '')
+        .trim()
+        .toLowerCase(),
+    );
+  }
+
+  private async createPaymentLink(input: {
+    amount: number;
+    paymentRef: string;
+    contestTitle: string;
+    contestId: string;
+    categoryId: string;
+    firstName: string;
+    email: string;
+    phone: string;
+  }) {
+    return this.paymentService.initiatePayment({
+      amount: input.amount,
+      currency: 'NGN',
+      tx_ref: input.paymentRef,
+      redirect_url: this.callBackUrl,
+      payment_options: 'card, mobilemoney, ussd',
+      customer: {
+        name: input.firstName,
+        email: input.email,
+        phonenumber: input.phone,
+      },
+      meta: {
+        type: 'Registration',
+        contestId: input.contestId,
+        categoryId: input.categoryId,
+      },
+      customizations: {
+        title: input.contestTitle,
+      },
+    });
+  }
+
   async create(createRegistrationDto: CreateRegistrationDto, files: string[]) {
     const { contest, category } = await this.getActiveContestContext(
       createRegistrationDto.categoryId,
@@ -52,49 +96,61 @@ export class RegistrationService {
     const email = createRegistrationDto.email.toLowerCase().trim();
     const amount = category.price;
     const contestTitle = contest.name;
+    const contestId = contest._id.toString();
+    const categoryId = category._id.toString();
 
-    const checkRegistration = await this.registrationModel.findOne({
+    // Same email can register for different contests.
+    // For the same contest: paid → reject; unpaid → return a new payment URL.
+    const existingForContest = await this.registrationModel.findOne({
       email,
       contest: contest._id,
     });
 
-    if (checkRegistration) {
-      const isPaid = ['successful', 'success'].includes(
-        checkRegistration.paymentStatus,
-      );
-      if (isPaid) {
+    if (existingForContest) {
+      if (this.isPaidStatus(existingForContest.paymentStatus)) {
         throw new BadRequestException(
-          'You have already registered for this contest',
+          'Already registered for this contest',
         );
       }
 
-      checkRegistration.paymentRef = Date.now().toString();
-      checkRegistration.categoryId = category._id;
-      checkRegistration.category = category.slug;
-      await checkRegistration.save();
+      const paymentRef = Date.now().toString();
+      existingForContest.paymentRef = paymentRef;
+      existingForContest.categoryId = category._id;
+      existingForContest.category = category.slug;
+      existingForContest.firstName = createRegistrationDto.firstName;
+      existingForContest.lastName = createRegistrationDto.lastName;
+      existingForContest.phone = createRegistrationDto.phone;
+      existingForContest.dateOfBirth = createRegistrationDto.dateOfBirth;
+      existingForContest.height = createRegistrationDto.height;
+      existingForContest.weight = createRegistrationDto.weight;
+      existingForContest.bio = createRegistrationDto.bio;
+      existingForContest.experience = createRegistrationDto.experience;
+      existingForContest.achievements = createRegistrationDto.achievements;
+      existingForContest.socialMedia = createRegistrationDto.socialMedia;
+      existingForContest.emergencyContact =
+        createRegistrationDto.emergencyContact;
+      existingForContest.termsAccepted = createRegistrationDto.termsAccepted;
+      if (files?.length) {
+        existingForContest.photos = files;
+      }
+      await existingForContest.save();
 
-      const paymentData: FlutterwaveResponse =
-        await this.paymentService.initiatePayment({
-          amount,
-          currency: 'NGN',
-          tx_ref: checkRegistration.paymentRef,
-          redirect_url: this.callBackUrl,
-          payment_options: 'card, mobilemoney, ussd',
-          customer: {
-            name: createRegistrationDto.firstName,
-            email,
-            phonenumber: createRegistrationDto.phone,
-          },
-          meta: {
-            type: 'Registration',
-            contestId: contest._id.toString(),
-            categoryId: category._id.toString(),
-          },
-          customizations: {
-            title: contestTitle,
-          },
-        });
-      return { flutterwavePaymentUrl: paymentData };
+      const paymentData: FlutterwaveResponse = await this.createPaymentLink({
+        amount,
+        paymentRef,
+        contestTitle,
+        contestId,
+        categoryId,
+        firstName: createRegistrationDto.firstName,
+        email,
+        phone: createRegistrationDto.phone,
+      });
+
+      return {
+        flutterwavePaymentUrl: paymentData,
+        pendingPayment: true,
+        message: 'Registration found but unpaid. Complete payment to finish.',
+      };
     }
 
     const initialScore = await this.scoreModel.create({});
@@ -120,30 +176,20 @@ export class RegistrationService {
       photos: files,
       score: initialScore._id,
       paymentRef,
+      paymentStatus: 'unpaid',
     });
     await registration.save();
 
-    const paymentData: FlutterwaveResponse =
-      await this.paymentService.initiatePayment({
-        amount,
-        currency: 'NGN',
-        tx_ref: paymentRef,
-        redirect_url: this.callBackUrl,
-        payment_options: 'card, mobilemoney, ussd',
-        customer: {
-          name: createRegistrationDto.firstName,
-          email,
-          phonenumber: createRegistrationDto.phone,
-        },
-        meta: {
-          type: 'Registration',
-          contestId: contest._id.toString(),
-          categoryId: category._id.toString(),
-        },
-        customizations: {
-          title: contestTitle,
-        },
-      });
+    const paymentData: FlutterwaveResponse = await this.createPaymentLink({
+      amount,
+      paymentRef,
+      contestTitle,
+      contestId,
+      categoryId,
+      firstName: createRegistrationDto.firstName,
+      email,
+      phone: createRegistrationDto.phone,
+    });
 
     return { flutterwavePaymentUrl: paymentData };
   }
@@ -171,11 +217,61 @@ export class RegistrationService {
       .exec();
   }
 
+  async findAllForAdmin(contestId?: string) {
+    const filter: Record<string, unknown> = {};
+    if (contestId) {
+      filter.contest = contestId;
+    }
+
+    return this.registrationModel
+      .find(filter)
+      .populate({
+        path: 'score',
+        model: 'ContestantScore',
+      })
+      .populate({
+        path: 'contest',
+        model: 'Contest',
+        select: 'name year showDate isActive',
+      })
+      .sort({ createdAt: -1 })
+      .select(
+        'firstName lastName email phone category categoryId paymentStatus paymentRef photos dateOfBirth height weight bio contest score createdAt',
+      )
+      .exec();
+  }
+
   findOne(id: string) {
     return this.registrationModel.findById(id).populate({
       path: 'score',
       model: 'ContestantScore',
     });
+  }
+
+  async findOneForAdmin(id: string) {
+    const registration = await this.registrationModel
+      .findById(id)
+      .populate({
+        path: 'score',
+        model: 'ContestantScore',
+      })
+      .populate({
+        path: 'contest',
+        model: 'Contest',
+        select: 'name year showDate isActive description',
+      })
+      .populate({
+        path: 'categoryId',
+        model: 'Category',
+        select: 'name slug price description',
+      })
+      .exec();
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
+
+    return registration;
   }
 
   remove(id: string) {

@@ -10,6 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ContestService } from './contest.service';
 import { CreateContestDto } from './dto/create-contest.dto';
+import { UpdateContestDto } from './dto/update-contest.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { AdminAuthGuard } from 'src/admin/guards/admin-auth.guard';
 
@@ -46,6 +47,14 @@ export class ContestController {
   @ApiOperation({ summary: 'Create contest (admin) — requires no active contest' })
   create(@Body() dto: CreateContestDto) {
     return this.contestService.createContest(dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update contest name, description, and show date (admin)' })
+  update(@Param('id') id: string, @Body() dto: UpdateContestDto) {
+    return this.contestService.updateContest(id, dto);
   }
 
   @Patch(':id/activate')

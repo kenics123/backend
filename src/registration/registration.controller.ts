@@ -5,6 +5,8 @@ import {
   Body,
   Param,
   Delete,
+  Query,
+  UseGuards,
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
@@ -12,8 +14,16 @@ import { RegistrationService } from './registration.service';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { FileService } from 'src/file/file.service';
-import { ApiBody, ApiConsumes, ApiParam } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { CloudinaryUploadResponse } from 'src/types/types';
+import { AdminAuthGuard } from 'src/admin/guards/admin-auth.guard';
 
 @Controller('registration')
 export class RegistrationController {
@@ -89,6 +99,24 @@ export class RegistrationController {
   @Get()
   findAll() {
     return this.registrationService.findAll();
+  }
+
+  @Get('admin/list')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List registrations for admin (filter by contest)' })
+  @ApiQuery({ name: 'contestId', required: false, type: String })
+  findAllForAdmin(@Query('contestId') contestId?: string) {
+    return this.registrationService.findAllForAdmin(contestId);
+  }
+
+  @Get('admin/:id')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get registration details by id (admin)' })
+  @ApiParam({ name: 'id', description: 'Registration ID' })
+  findOneForAdmin(@Param('id') id: string) {
+    return this.registrationService.findOneForAdmin(id);
   }
 
   @Get(':id')

@@ -8,6 +8,7 @@ import { Model } from 'mongoose';
 import { Contest, ContestDocument } from './schema/contest.schema';
 import { Category, CategoryDocument } from './schema/category.schema';
 import { CreateContestDto } from './dto/create-contest.dto';
+import { UpdateContestDto } from './dto/update-contest.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Injectable()
@@ -37,13 +38,50 @@ export class ContestService {
       );
     }
 
+    const showDate = new Date(dto.showDate);
+    if (Number.isNaN(showDate.getTime())) {
+      throw new BadRequestException('Invalid show date');
+    }
+
     const contest = await this.contestModel.create({
       name: dto.name.trim(),
       description: dto.description?.trim() || '',
-      year: dto.year,
+      showDate,
+      year: showDate.getFullYear(),
       isActive: false,
     });
 
+    return contest;
+  }
+
+  async updateContest(id: string, dto: UpdateContestDto) {
+    const contest = await this.contestModel.findById(id);
+    if (!contest) {
+      throw new NotFoundException('Contest not found');
+    }
+
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      if (!name) {
+        throw new BadRequestException('Name cannot be empty');
+      }
+      contest.name = name;
+    }
+
+    if (dto.description !== undefined) {
+      contest.description = dto.description.trim();
+    }
+
+    if (dto.showDate !== undefined) {
+      const showDate = new Date(dto.showDate);
+      if (Number.isNaN(showDate.getTime())) {
+        throw new BadRequestException('Invalid show date');
+      }
+      contest.showDate = showDate;
+      contest.year = showDate.getFullYear();
+    }
+
+    await contest.save();
     return contest;
   }
 

@@ -29,4 +29,12 @@ export class AdminAuthController {
   me(@Req() req: { admin: { sub: string } }) {
     return this.adminService.findById(req.admin.sub);
   }
+
+  @Get('stats')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Dashboard stats (admin)' })
+  stats() {
+    return this.adminService.getDashboardStats();
+  }
 }
