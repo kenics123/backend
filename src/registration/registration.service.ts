@@ -6,7 +6,7 @@ import {
 import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Registration, RegistrationDocument } from './schema/registration.schema';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { PaymentService } from 'src/payment/payment.service';
 import { ConfigService } from '@nestjs/config';
 import { FlutterwaveResponse } from 'src/types/types';
@@ -229,8 +229,23 @@ export class RegistrationService {
 
   async findAllForAdmin(contestId?: string) {
     const filter: Record<string, unknown> = {};
-    if (contestId) {
-      filter.contest = contestId;
+    const trimmedContestId = contestId?.trim();
+
+    if (trimmedContestId) {
+      if (!Types.ObjectId.isValid(trimmedContestId)) {
+        return [];
+      }
+
+      const contestObjectId = new Types.ObjectId(trimmedContestId);
+      // Match ObjectId and any legacy string contest refs
+      filter.$or = [
+        { contest: contestObjectId },
+        {
+          $expr: {
+            $eq: [{ $toString: '$contest' }, trimmedContestId],
+          },
+        },
+      ];
     }
 
     return this.registrationModel
@@ -248,6 +263,7 @@ export class RegistrationService {
       .select(
         'firstName lastName email phone category categoryId paymentStatus paymentRef photos dateOfBirth height weight bio contest score createdAt',
       )
+      .lean()
       .exec();
   }
 
