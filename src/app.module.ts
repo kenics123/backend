@@ -8,11 +8,13 @@ import { PaymentModule } from './payment/payment.module';
 import { VoteModule } from './vote/vote.module';
 import { AdminModule } from './admin/admin.module';
 import { ContestModule } from './contest/contest.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
     FileModule,
     ContestModule,
+    ContactModule,
     RegistrationModule,
     ConfigModule.forRoot({
       isGlobal: true,
