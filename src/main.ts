@@ -17,9 +17,10 @@ async function bootstrap() {
   const corsOptions: CorsOptions = {
     origin: [
       'http://localhost:3000',
-      'https://frontend-dusky-three-85.vercel.app',
+      'https://www.kenicspageant.online',
+      'https://kenicspageant.online',
     ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   };
 

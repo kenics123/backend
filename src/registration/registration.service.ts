@@ -27,11 +27,12 @@ export class RegistrationService {
       baby: 10000,
       teen: 20000,
       miss: 40000,
-      mrs: 60000,
+      mrs: 50000,
     };
 
-    return amountMap[category] ?? 0; // default to 0 if not found
+    return amountMap[category] ?? 0;
   }
+
   async create(createRegistrationDto: CreateRegistrationDto, files: string[]) {
     //if email exit and payment status is unpaid, update payment ref and return payment url
     //else create new registration and return payment url

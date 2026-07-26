@@ -77,5 +77,10 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "minimatch": "^10.2.5",
+    "js-yaml": "^4.1.1"
   }
 }
