@@ -49,6 +49,7 @@ export class ContestService {
       showDate,
       year: showDate.getFullYear(),
       isActive: false,
+      startVoting: false,
     });
 
     return contest;
@@ -155,6 +156,17 @@ export class ContestService {
     }
 
     contest.isActive = false;
+    await contest.save();
+    return contest;
+  }
+
+  async setStartVoting(id: string, startVoting: boolean) {
+    const contest = await this.contestModel.findById(id);
+    if (!contest) {
+      throw new NotFoundException('Contest not found');
+    }
+
+    contest.startVoting = startVoting;
     await contest.save();
     return contest;
   }

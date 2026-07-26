@@ -20,6 +20,9 @@ export class Contest {
 
   @Prop({ default: false, index: true })
   isActive: boolean;
+
+  @Prop({ default: false })
+  startVoting: boolean;
 }
 
 export const ContestSchema = SchemaFactory.createForClass(Contest);

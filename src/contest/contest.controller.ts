@@ -73,6 +73,22 @@ export class ContestController {
     return this.contestService.deactivate(id);
   }
 
+  @Patch(':id/start-voting')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Enable voting for contest (admin)' })
+  startVoting(@Param('id') id: string) {
+    return this.contestService.setStartVoting(id, true);
+  }
+
+  @Patch(':id/stop-voting')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Disable voting for contest (admin)' })
+  stopVoting(@Param('id') id: string) {
+    return this.contestService.setStartVoting(id, false);
+  }
+
   @Post(':id/categories')
   @UseGuards(AdminAuthGuard)
   @ApiBearerAuth()
