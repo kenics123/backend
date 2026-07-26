@@ -7,7 +7,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
-import { FlutterwaveWebhookEvent } from 'src/types/types';
+import type { FlutterwaveWebhookEvent } from 'src/types/types';
 
 @Controller('payment')
 export class PaymentController {

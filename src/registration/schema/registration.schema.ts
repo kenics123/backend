@@ -32,13 +32,19 @@ class EmergencyContact {
 
 @Schema({ timestamps: true })
 export class Registration {
+  @Prop({ type: Types.ObjectId, ref: 'Contest', required: true, index: true })
+  contest: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Category', required: true })
+  categoryId: Types.ObjectId;
+
   @Prop({ required: true })
   firstName: string;
 
   @Prop({ required: true })
   lastName: string;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true, lowercase: true, trim: true })
   email: string;
 
   @Prop({ required: true })
@@ -83,7 +89,7 @@ export class Registration {
   @Prop({ required: true, default: 'unpaid' })
   paymentStatus: string;
 
-  @Prop({ required: true, default: Date.now().toString() })
+  @Prop({ required: true, default: () => Date.now().toString() })
   paymentRef: string;
 
   @Prop({
@@ -96,3 +102,5 @@ export class Registration {
 }
 
 export const registrationSchema = SchemaFactory.createForClass(Registration);
+
+registrationSchema.index({ contest: 1, email: 1 }, { unique: true });

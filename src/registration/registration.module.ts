@@ -10,9 +10,11 @@ import {
   ContestantScore,
   ContestantScoreSchema,
 } from 'src/vote/schema/vote.schema';
+import { ContestModule } from 'src/contest/contest.module';
 
 @Module({
   imports: [
+    ContestModule,
     MongooseModule.forFeature([
       { name: Registration.name, schema: registrationSchema },
       { name: ContestantScore.name, schema: ContestantScoreSchema },

@@ -33,7 +33,7 @@ export class RegistrationController {
         email: { type: 'string', format: 'email' },
         phone: { type: 'string' },
         dateOfBirth: { type: 'string', format: 'date' },
-        category: { type: 'string' },
+        categoryId: { type: 'string' },
         achievements: { type: 'string' },
         height: { type: 'string' },
         weight: { type: 'string' },

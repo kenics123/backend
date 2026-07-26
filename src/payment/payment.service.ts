@@ -7,7 +7,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Registration } from 'src/registration/schema/registration.schema';
+import {
+  Registration,
+  RegistrationDocument,
+} from 'src/registration/schema/registration.schema';
 import { FlutterwaveResponse, FlutterwaveWebhookEvent } from 'src/types/types';
 
 @Injectable()
@@ -19,7 +22,7 @@ export class PaymentService {
   constructor(
     private configService: ConfigService,
     @InjectModel(Registration.name)
-    private registrationModel: Model<Registration>,
+    private registrationModel: Model<RegistrationDocument>,
   ) {
     this.secretKey =
       this.configService.get<string>('FLUTTERWAVE_SECRET_KEY') || '';
@@ -42,9 +45,7 @@ export class PaymentService {
     customizations: {
       title: string;
     };
-    meta: {
-      type: string;
-    };
+    meta: Record<string, string>;
   }) {
     try {
       const response = await fetch(`${this.baseUrl}/payments`, {
@@ -144,7 +145,7 @@ export class PaymentService {
       return { received: true, ignored: true, reason: 'missing_tx_ref' };
     }
 
-    let registration: Registration | null = null;
+    let registration: RegistrationDocument | null = null;
     for (const ref of txRefs) {
       registration = await this.registrationModel.findOne({ paymentRef: ref });
       if (registration) {
@@ -219,7 +220,9 @@ export class PaymentService {
       }
     };
 
-    const payload = event?.data as Record<string, unknown> | undefined;
+    const payload = event?.data as unknown as
+      | Record<string, unknown>
+      | undefined;
     add(payload?.tx_ref);
     add(payload?.txRef);
     add(payload?.reference);

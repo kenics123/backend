@@ -6,10 +6,13 @@ import dbConfig from './config/db.config';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentModule } from './payment/payment.module';
 import { VoteModule } from './vote/vote.module';
+import { AdminModule } from './admin/admin.module';
+import { ContestModule } from './contest/contest.module';
 
 @Module({
   imports: [
     FileModule,
+    ContestModule,
     RegistrationModule,
     ConfigModule.forRoot({
       isGlobal: true,
@@ -21,6 +24,7 @@ import { VoteModule } from './vote/vote.module';
     }),
     PaymentModule,
     VoteModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

@@ -42,11 +42,15 @@ export class EmergencyContactDto {
 
 export class CreateRegistrationDto {
   @IsString()
-  @ApiProperty({ description: 'User email' })
+  @ApiProperty({ description: 'Category ID from active contest' })
+  categoryId: string;
+
+  @IsString()
+  @ApiProperty({ description: 'First name' })
   firstName: string;
 
   @IsString()
-  @ApiProperty({ description: 'User email' })
+  @ApiProperty({ description: 'Last name' })
   lastName: string;
 
   @IsString()
@@ -55,10 +59,6 @@ export class CreateRegistrationDto {
   @IsString()
   @ApiProperty({ description: 'User phone number' })
   phone: string;
-
-  @IsString()
-  @ApiProperty({ description: 'User category' })
-  category: string;
 
   @IsString()
   @ApiProperty({ description: 'User height' })
