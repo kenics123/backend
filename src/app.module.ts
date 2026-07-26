@@ -9,12 +9,14 @@ import { VoteModule } from './vote/vote.module';
 import { AdminModule } from './admin/admin.module';
 import { ContestModule } from './contest/contest.module';
 import { ContactModule } from './contact/contact.module';
+import { GalleryModule } from './gallery/gallery.module';
 
 @Module({
   imports: [
     FileModule,
     ContestModule,
     ContactModule,
+    GalleryModule,
     RegistrationModule,
     ConfigModule.forRoot({
       isGlobal: true,
