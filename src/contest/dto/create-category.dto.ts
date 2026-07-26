@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsNotEmpty,
   IsNumber,
@@ -14,6 +15,7 @@ export class CreateCategoryDto {
   name: string;
 
   @ApiProperty({ example: 40000 })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price: number;

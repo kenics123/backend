@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Contest, ContestDocument } from './schema/contest.schema';
 import { Category, CategoryDocument } from './schema/category.schema';
 import { CreateContestDto } from './dto/create-contest.dto';
@@ -28,6 +28,34 @@ export class ContestService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .replace(/-+/g, '-');
+  }
+
+  private toObjectId(id: string | Types.ObjectId) {
+    return new Types.ObjectId(String(id));
+  }
+
+  private async findCategoriesForContest(contestId: string | Types.ObjectId) {
+    const objectId = this.toObjectId(contestId);
+    const idString = String(contestId);
+
+    const categories = await this.categoryModel
+      .find({ contest: objectId })
+      .sort({ price: 1 })
+      .lean()
+      .exec();
+
+    if (categories.length > 0) {
+      return categories;
+    }
+
+    // Fallback for any legacy rows stored with string contest ids
+    return this.categoryModel
+      .find({
+        $expr: { $eq: [{ $toString: '$contest' }, idString] },
+      })
+      .sort({ price: 1 })
+      .lean()
+      .exec();
   }
 
   async createContest(dto: CreateContestDto) {
@@ -96,11 +124,7 @@ export class ContestService {
       return null;
     }
 
-    const categories = await this.categoryModel
-      .find({ contest: contest._id })
-      .sort({ price: 1 })
-      .lean();
-
+    const categories = await this.findCategoriesForContest(contest._id);
     return { ...contest, categories };
   }
 
@@ -110,11 +134,7 @@ export class ContestService {
       throw new NotFoundException('Contest not found');
     }
 
-    const categories = await this.categoryModel
-      .find({ contest: id })
-      .sort({ price: 1 })
-      .lean();
-
+    const categories = await this.findCategoriesForContest(id);
     return { ...contest, categories };
   }
 
@@ -135,10 +155,8 @@ export class ContestService {
       );
     }
 
-    const categoryCount = await this.categoryModel.countDocuments({
-      contest: id,
-    });
-    if (categoryCount === 0) {
+    const categories = await this.findCategoriesForContest(id);
+    if (categories.length === 0) {
       throw new BadRequestException(
         'Add at least one category before activating this contest.',
       );
@@ -182,8 +200,9 @@ export class ContestService {
       throw new BadRequestException('Invalid category name');
     }
 
+    const contestObjectId = this.toObjectId(contestId);
     const existing = await this.categoryModel.findOne({
-      contest: contestId,
+      contest: contestObjectId,
       slug,
     });
     if (existing) {
@@ -193,10 +212,10 @@ export class ContestService {
     }
 
     return this.categoryModel.create({
-      contest: contestId,
+      contest: contestObjectId,
       name: dto.name.trim(),
       slug,
-      price: dto.price,
+      price: Number(dto.price),
       description: dto.description?.trim() || '',
     });
   }
@@ -207,7 +226,7 @@ export class ContestService {
       throw new NotFoundException('Contest not found');
     }
 
-    return this.categoryModel.find({ contest: contestId }).sort({ price: 1 });
+    return this.findCategoriesForContest(contestId);
   }
 
   async getCategoryById(categoryId: string) {
