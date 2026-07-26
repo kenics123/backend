@@ -39,14 +39,22 @@ export class PaymentService {
     @InjectModel(ContestantScore.name)
     private scoreModel: Model<ContestantScoreDocument>,
   ) {
-    this.secretKey =
-      this.configService.get<string>('FLUTTERWAVE_SECRET_KEY') || '';
+    this.secretKey = (
+      this.configService.get<string>('FLUTTERWAVE_SECRET_KEY') || ''
+    )
+      .trim()
+      .replace(/^["']|["']$/g, '');
     this.baseUrl = (
       this.configService.get<string>('FLUTTERWAVE_BASE_URL') || ''
-    ).replace(/\/+$/, '');
+    )
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .replace(/\/+$/, '');
     this.webhookSecret = (
       this.configService.get<string>('WEBHOOK_SECRET') || ''
-    ).trim();
+    )
+      .trim()
+      .replace(/^["']|["']$/g, '');
   }
 
   assertValidWebhookSignature(rawBody: Buffer, signature?: string): void {

@@ -245,13 +245,14 @@ export class ContestService {
       throw new NotFoundException('Contest not found');
     }
 
-    const category = await this.categoryModel.findOne({
-      _id: categoryId,
-      contest: this.toObjectId(contestId),
-    });
-    if (!category) {
+    // Find by id first — older categories may store contest as a string.
+    const category = await this.categoryModel.findById(categoryId);
+    if (!category || String(category.contest) !== String(contestId)) {
       throw new NotFoundException('Category not found');
     }
+
+    // Normalize legacy string contest refs to ObjectId
+    category.contest = this.toObjectId(contestId);
 
     if (dto.name !== undefined) {
       const name = dto.name.trim();
@@ -262,10 +263,19 @@ export class ContestService {
       if (!slug) {
         throw new BadRequestException('Invalid category name');
       }
+
+      const contestObjectId = this.toObjectId(contestId);
       const existing = await this.categoryModel.findOne({
-        contest: this.toObjectId(contestId),
         slug,
         _id: { $ne: category._id },
+        $or: [
+          { contest: contestObjectId },
+          {
+            $expr: {
+              $eq: [{ $toString: '$contest' }, String(contestId)],
+            },
+          },
+        ],
       });
       if (existing) {
         throw new BadRequestException(
@@ -286,6 +296,10 @@ export class ContestService {
 
     if (dto.description !== undefined) {
       category.description = dto.description.trim();
+    }
+
+    if (category.votingPrice == null) {
+      category.votingPrice = 0;
     }
 
     await category.save();
