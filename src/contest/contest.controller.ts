@@ -12,6 +12,7 @@ import { ContestService } from './contest.service';
 import { CreateContestDto } from './dto/create-contest.dto';
 import { UpdateContestDto } from './dto/update-contest.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 import { AdminAuthGuard } from 'src/admin/guards/admin-auth.guard';
 
 @ApiTags('Contest')
@@ -92,9 +93,23 @@ export class ContestController {
   @Post(':id/categories')
   @UseGuards(AdminAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Add category with price to contest (admin)' })
+  @ApiOperation({
+    summary: 'Add category with registration + voting price (admin)',
+  })
   addCategory(@Param('id') id: string, @Body() dto: CreateCategoryDto) {
     return this.contestService.addCategory(id, dto);
+  }
+
+  @Patch(':id/categories/:categoryId')
+  @UseGuards(AdminAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update category (admin)' })
+  updateCategory(
+    @Param('id') id: string,
+    @Param('categoryId') categoryId: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
+    return this.contestService.updateCategory(id, categoryId, dto);
   }
 
   @Get(':id/categories')

@@ -252,10 +252,17 @@ export class RegistrationService {
   }
 
   findOne(id: string) {
-    return this.registrationModel.findById(id).populate({
-      path: 'score',
-      model: 'ContestantScore',
-    });
+    return this.registrationModel
+      .findById(id)
+      .populate({
+        path: 'score',
+        model: 'ContestantScore',
+      })
+      .populate({
+        path: 'categoryId',
+        model: 'Category',
+        select: 'name slug price votingPrice description',
+      });
   }
 
   async findOneForAdmin(id: string) {
@@ -273,7 +280,7 @@ export class RegistrationService {
       .populate({
         path: 'categoryId',
         model: 'Category',
-        select: 'name slug price description',
+        select: 'name slug price votingPrice description',
       })
       .exec();
 

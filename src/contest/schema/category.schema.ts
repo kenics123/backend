@@ -17,6 +17,9 @@ export class Category {
   @Prop({ required: true, min: 0 })
   price: number;
 
+  @Prop({ required: true, min: 0, default: 0 })
+  votingPrice: number;
+
   @Prop({ default: '', trim: true })
   description: string;
 }

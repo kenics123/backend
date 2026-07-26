@@ -1,34 +1,28 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { VoteService } from './vote.service';
 import { CreateVoteDto } from './dto/create-vote.dto';
-import { UpdateVoteDto } from './dto/update-vote.dto';
 
+@ApiTags('Vote')
 @Controller('vote')
 export class VoteController {
   constructor(private readonly voteService: VoteService) {}
 
   @Post()
+  @ApiOperation({
+    summary:
+      'Start a vote payment for a contestant (public). Returns Flutterwave URL when voting is open.',
+  })
   create(@Body() createVoteDto: CreateVoteDto) {
     return this.voteService.create(createVoteDto);
   }
 
-  @Get()
-  findAll() {
-    return this.voteService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.voteService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateVoteDto: UpdateVoteDto) {
-    return this.voteService.update(+id, updateVoteDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.voteService.remove(+id);
+  @Get('winners')
+  @ApiOperation({
+    summary:
+      'Get top contestant per category. Confirmed winners when voting is stopped.',
+  })
+  getWinners() {
+    return this.voteService.getWinners();
   }
 }

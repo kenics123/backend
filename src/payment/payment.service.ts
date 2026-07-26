@@ -13,6 +13,14 @@ import {
   Registration,
   RegistrationDocument,
 } from 'src/registration/schema/registration.schema';
+import {
+  VotePayment,
+  VotePaymentDocument,
+} from 'src/vote/schema/vote-payment.schema';
+import {
+  ContestantScore,
+  ContestantScoreDocument,
+} from 'src/vote/schema/vote.schema';
 import { FlutterwaveResponse, FlutterwaveWebhookEvent } from 'src/types/types';
 
 @Injectable()
@@ -26,6 +34,10 @@ export class PaymentService {
     private configService: ConfigService,
     @InjectModel(Registration.name)
     private registrationModel: Model<RegistrationDocument>,
+    @InjectModel(VotePayment.name)
+    private votePaymentModel: Model<VotePaymentDocument>,
+    @InjectModel(ContestantScore.name)
+    private scoreModel: Model<ContestantScoreDocument>,
   ) {
     this.secretKey =
       this.configService.get<string>('FLUTTERWAVE_SECRET_KEY') || '';
@@ -51,12 +63,10 @@ export class PaymentService {
 
     const trimmed = signature.trim();
 
-    // Flutterwave secret hash (verif-hash) — plain equality
     if (this.timingSafeEqual(trimmed, this.webhookSecret)) {
       return;
     }
 
-    // Newer Flutterwave signature — HMAC of raw body
     const mac = crypto
       .createHmac('sha256', this.webhookSecret)
       .update(rawBody)
@@ -199,6 +209,18 @@ export class PaymentService {
       return { received: true, ignored: true, reason: 'missing_tx_ref' };
     }
 
+    let votePayment: VotePaymentDocument | null = null;
+    for (const ref of txRefs) {
+      votePayment = await this.votePaymentModel.findOne({ paymentRef: ref });
+      if (votePayment) {
+        break;
+      }
+    }
+
+    if (votePayment) {
+      return this.processVoteWebhook(votePayment);
+    }
+
     let registration: RegistrationDocument | null = null;
     for (const ref of txRefs) {
       registration = await this.registrationModel.findOne({ paymentRef: ref });
@@ -209,11 +231,96 @@ export class PaymentService {
 
     if (!registration) {
       this.logger.warn(
-        `Webhook skipped: no registration for refs=${JSON.stringify(txRefs)}`,
+        `Webhook skipped: no registration/vote for refs=${JSON.stringify(txRefs)}`,
       );
       return { received: true, skipped: true, reason: 'unknown_tx_ref' };
     }
 
+    return this.processRegistrationWebhook(registration);
+  }
+
+  private async processVoteWebhook(votePayment: VotePaymentDocument) {
+    this.logger.log(
+      `Webhook matched vote paymentRef=${votePayment.paymentRef} registration=${votePayment.registration} votes=${votePayment.votes} applied=${votePayment.applied}`,
+    );
+
+    if (votePayment.applied && this.isPaidStatus(votePayment.paymentStatus)) {
+      this.logger.log(
+        `Webhook skipped: vote already applied paymentRef=${votePayment.paymentRef}`,
+      );
+      return { received: true, skipped: true, reason: 'already_applied' };
+    }
+
+    const verified = await this.verifyPaymentByReference(
+      votePayment.paymentRef,
+    );
+    this.logger.log(
+      `Flutterwave vote verify: status=${verified.status} data.status=${verified.data?.status}`,
+    );
+
+    if (!this.isVerifyResponseSuccessful(verified.status)) {
+      return {
+        received: true,
+        verified: false,
+        type: 'Vote',
+        message: verified.message,
+      };
+    }
+
+    const verifiedStatus = String(verified.data?.status ?? '').toLowerCase();
+    votePayment.paymentStatus = verifiedStatus || 'failed';
+
+    if (!this.isPaidStatus(votePayment.paymentStatus)) {
+      await votePayment.save();
+      return {
+        received: true,
+        processed: true,
+        type: 'Vote',
+        paymentStatus: votePayment.paymentStatus,
+      };
+    }
+
+    if (!votePayment.applied) {
+      const registration = await this.registrationModel.findById(
+        votePayment.registration,
+      );
+      if (!registration?.score) {
+        this.logger.error(
+          `Vote paid but contestant score missing paymentRef=${votePayment.paymentRef}`,
+        );
+        await votePayment.save();
+        return {
+          received: true,
+          processed: false,
+          type: 'Vote',
+          reason: 'score_missing',
+        };
+      }
+
+      await this.scoreModel.findByIdAndUpdate(registration.score, {
+        $inc: { voteCount: votePayment.votes },
+        $set: { lastVotedAt: new Date() },
+      });
+      votePayment.applied = true;
+    }
+
+    await votePayment.save();
+
+    this.logger.log(
+      `Webhook vote processed: paymentRef=${votePayment.paymentRef} votes=${votePayment.votes} contest=${votePayment.contest} category=${votePayment.category} registration=${votePayment.registration}`,
+    );
+
+    return {
+      received: true,
+      processed: true,
+      type: 'Vote',
+      paymentStatus: votePayment.paymentStatus,
+      votes: votePayment.votes,
+      registrationId: String(votePayment.registration),
+    };
+  }
+
+  private async processRegistrationWebhook(registration: RegistrationDocument) {
     this.logger.log(
       `Webhook matched registration email=${registration.email} paymentRef=${registration.paymentRef} currentStatus=${registration.paymentStatus}`,
     );
@@ -225,23 +332,18 @@ export class PaymentService {
       return { received: true, skipped: true, reason: 'already_paid' };
     }
 
-    this.logger.log(
-      `Verifying with Flutterwave by reference: ${registration.paymentRef}`,
-    );
     const verified = await this.verifyPaymentByReference(
       registration.paymentRef,
     );
     this.logger.log(
-      `Flutterwave verify result: status=${verified.status} message=${verified.message} data.status=${verified.data?.status} payment_type=${verified.data?.payment_type}`,
+      `Flutterwave verify result: status=${verified.status} message=${verified.message} data.status=${verified.data?.status}`,
     );
 
     if (!this.isVerifyResponseSuccessful(verified.status)) {
-      this.logger.warn(
-        `Webhook verify failed: paymentRef=${registration.paymentRef} status=${verified.status}`,
-      );
       return {
         received: true,
         verified: false,
+        type: 'Registration',
         message: verified.message,
       };
     }
@@ -250,13 +352,10 @@ export class PaymentService {
     registration.paymentStatus = verifiedStatus || 'failed';
     await registration.save();
 
-    this.logger.log(
-      `Webhook processed: paymentRef=${registration.paymentRef} paymentStatus=${registration.paymentStatus} paymentType=${verified.data?.payment_type}`,
-    );
-
     return {
       received: true,
       processed: true,
+      type: 'Registration',
       paymentStatus: registration.paymentStatus,
       paymentType: verified.data?.payment_type,
     };

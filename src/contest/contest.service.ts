@@ -10,6 +10,7 @@ import { Category, CategoryDocument } from './schema/category.schema';
 import { CreateContestDto } from './dto/create-contest.dto';
 import { UpdateContestDto } from './dto/update-contest.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class ContestService {
@@ -128,6 +129,19 @@ export class ContestService {
     return { ...contest, categories };
   }
 
+  async findLatest() {
+    const contest = await this.contestModel
+      .findOne()
+      .sort({ createdAt: -1 })
+      .lean();
+    if (!contest) {
+      return null;
+    }
+
+    const categories = await this.findCategoriesForContest(contest._id);
+    return { ...contest, categories };
+  }
+
   async findOne(id: string) {
     const contest = await this.contestModel.findById(id).lean();
     if (!contest) {
@@ -216,8 +230,66 @@ export class ContestService {
       name: dto.name.trim(),
       slug,
       price: Number(dto.price),
+      votingPrice: Number(dto.votingPrice),
       description: dto.description?.trim() || '',
     });
+  }
+
+  async updateCategory(
+    contestId: string,
+    categoryId: string,
+    dto: UpdateCategoryDto,
+  ) {
+    const contest = await this.contestModel.findById(contestId);
+    if (!contest) {
+      throw new NotFoundException('Contest not found');
+    }
+
+    const category = await this.categoryModel.findOne({
+      _id: categoryId,
+      contest: this.toObjectId(contestId),
+    });
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      if (!name) {
+        throw new BadRequestException('Category name cannot be empty');
+      }
+      const slug = this.toSlug(name);
+      if (!slug) {
+        throw new BadRequestException('Invalid category name');
+      }
+      const existing = await this.categoryModel.findOne({
+        contest: this.toObjectId(contestId),
+        slug,
+        _id: { $ne: category._id },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          'A category with this name already exists for this contest',
+        );
+      }
+      category.name = name;
+      category.slug = slug;
+    }
+
+    if (dto.price !== undefined) {
+      category.price = Number(dto.price);
+    }
+
+    if (dto.votingPrice !== undefined) {
+      category.votingPrice = Number(dto.votingPrice);
+    }
+
+    if (dto.description !== undefined) {
+      category.description = dto.description.trim();
+    }
+
+    await category.save();
+    return category;
   }
 
   async getCategories(contestId: string) {

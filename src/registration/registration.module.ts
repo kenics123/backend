@@ -4,7 +4,6 @@ import { RegistrationController } from './registration.controller';
 import { FileService } from 'src/file/file.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Registration, registrationSchema } from './schema/registration.schema';
-import { PaymentService } from 'src/payment/payment.service';
 import { ConfigModule } from '@nestjs/config';
 import {
   ContestantScore,
@@ -12,11 +11,13 @@ import {
 } from 'src/vote/schema/vote.schema';
 import { ContestModule } from 'src/contest/contest.module';
 import { AdminModule } from 'src/admin/admin.module';
+import { PaymentModule } from 'src/payment/payment.module';
 
 @Module({
   imports: [
     ContestModule,
     AdminModule,
+    PaymentModule,
     MongooseModule.forFeature([
       { name: Registration.name, schema: registrationSchema },
       { name: ContestantScore.name, schema: ContestantScoreSchema },
@@ -24,6 +25,6 @@ import { AdminModule } from 'src/admin/admin.module';
     ConfigModule,
   ],
   controllers: [RegistrationController],
-  providers: [RegistrationService, FileService, PaymentService],
+  providers: [RegistrationService, FileService],
 })
 export class RegistrationModule {}
