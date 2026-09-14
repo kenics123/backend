@@ -27,14 +27,18 @@ async function bootstrap() {
   };
 
   app.enableCors(corsOptions);
-  const config = new DocumentBuilder()
-    .setTitle('Kenics API')
-    .setDescription('The kenics API description')
-    .addBearerAuth()
-    .setVersion('1.0')
-    .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Kenics API')
+      .setDescription('The kenics API description')
+      .addBearerAuth()
+      .setVersion('1.0')
+      .build();
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, documentFactory);
+  }
+
   await app.listen(process.env.PORT ?? 5000);
 }
 bootstrap();

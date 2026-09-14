@@ -22,6 +22,10 @@ import {
   ContestantScoreDocument,
 } from 'src/vote/schema/vote.schema';
 import { FlutterwaveResponse, FlutterwaveWebhookEvent } from 'src/types/types';
+import {
+  Category,
+  CategoryDocument,
+} from 'src/contest/schema/category.schema';
 
 @Injectable()
 export class PaymentService {
@@ -29,6 +33,7 @@ export class PaymentService {
   private readonly baseUrl: string;
   private readonly secretKey: string;
   private readonly webhookSecret: string;
+  private readonly expectedCurrency = 'NGN';
 
   constructor(
     private configService: ConfigService,
@@ -38,6 +43,8 @@ export class PaymentService {
     private votePaymentModel: Model<VotePaymentDocument>,
     @InjectModel(ContestantScore.name)
     private scoreModel: Model<ContestantScoreDocument>,
+    @InjectModel(Category.name)
+    private categoryModel: Model<CategoryDocument>,
   ) {
     this.secretKey = (
       this.configService.get<string>('FLUTTERWAVE_SECRET_KEY') || ''
@@ -208,6 +215,60 @@ export class PaymentService {
     }
   }
 
+  async getPaymentStatus(txRef: string) {
+    const ref = String(txRef || '').trim();
+    if (!ref) {
+      throw new HttpException('tx_ref is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const votePayment = await this.votePaymentModel
+      .findOne({ paymentRef: ref })
+      .select('paymentStatus applied amount votes paymentRef')
+      .lean()
+      .exec();
+
+    if (votePayment) {
+      const paid = this.isPaidStatus(votePayment.paymentStatus);
+      return {
+        type: 'Vote' as const,
+        paymentRef: votePayment.paymentRef,
+        paymentStatus: votePayment.paymentStatus,
+        applied: Boolean(votePayment.applied),
+        confirmed: paid && Boolean(votePayment.applied),
+        pending: !paid || !votePayment.applied,
+        amount: votePayment.amount,
+        votes: votePayment.votes,
+      };
+    }
+
+    const registration = await this.registrationModel
+      .findOne({ paymentRef: ref })
+      .select('paymentStatus expectedAmount paymentRef')
+      .lean()
+      .exec();
+
+    if (registration) {
+      const paid = this.isPaidStatus(registration.paymentStatus);
+      return {
+        type: 'Registration' as const,
+        paymentRef: registration.paymentRef,
+        paymentStatus: registration.paymentStatus,
+        confirmed: paid,
+        pending: !paid,
+        amount: registration.expectedAmount,
+      };
+    }
+
+    return {
+      type: null,
+      paymentRef: ref,
+      paymentStatus: 'unknown',
+      confirmed: false,
+      pending: true,
+      notFound: true,
+    };
+  }
+
   async webHookPayment(data: FlutterwaveWebhookEvent) {
     const txRefs = this.extractTxRefs(data);
     this.logger.log(`Webhook refs: ${JSON.stringify(txRefs)}`);
@@ -276,59 +337,97 @@ export class PaymentService {
     }
 
     const verifiedStatus = String(verified.data?.status ?? '').toLowerCase();
-    votePayment.paymentStatus = verifiedStatus || 'failed';
 
-    if (!this.isPaidStatus(votePayment.paymentStatus)) {
-      await votePayment.save();
+    if (!this.isPaidStatus(verifiedStatus)) {
+      await this.votePaymentModel.findByIdAndUpdate(votePayment._id, {
+        $set: { paymentStatus: verifiedStatus || 'failed' },
+      });
       return {
         received: true,
         processed: true,
         type: 'Vote',
-        paymentStatus: votePayment.paymentStatus,
+        paymentStatus: verifiedStatus || 'failed',
       };
     }
 
-    if (!votePayment.applied) {
-      const registration = await this.registrationModel.findById(
-        votePayment.registration,
+    const amountCheck = this.assertPaidAmountMatches(
+      Number(votePayment.amount),
+      verified.data,
+    );
+    if (!amountCheck.ok) {
+      this.logger.error(
+        `Vote amount mismatch paymentRef=${votePayment.paymentRef} expected=${votePayment.amount} paid=${amountCheck.paid} currency=${amountCheck.currency}`,
       );
-      if (!registration?.score) {
-        this.logger.error(
-          `Vote paid but contestant score missing paymentRef=${votePayment.paymentRef}`,
-        );
-        await votePayment.save();
-        return {
-          received: true,
-          processed: false,
-          type: 'Vote',
-          reason: 'score_missing',
-        };
-      }
-
-      await this.scoreModel.findByIdAndUpdate(registration.score, {
-        $inc: { voteCount: votePayment.votes },
-        $set: { lastVotedAt: new Date() },
-      });
-      votePayment.applied = true;
+      return {
+        received: true,
+        processed: false,
+        type: 'Vote',
+        reason: 'amount_mismatch',
+        expected: votePayment.amount,
+        paid: amountCheck.paid,
+        currency: amountCheck.currency,
+      };
     }
 
-    await votePayment.save();
+    // Atomic claim — only one concurrent webhook can apply votes.
+    const claimed = await this.votePaymentModel.findOneAndUpdate(
+      { _id: votePayment._id, applied: false },
+      {
+        $set: {
+          paymentStatus: verifiedStatus,
+          applied: true,
+        },
+      },
+      { new: true },
+    );
+
+    if (!claimed) {
+      this.logger.log(
+        `Webhook skipped: vote claim lost race paymentRef=${votePayment.paymentRef}`,
+      );
+      return { received: true, skipped: true, reason: 'already_applied' };
+    }
+
+    const registration = await this.registrationModel.findById(
+      claimed.registration,
+    );
+    if (!registration?.score) {
+      this.logger.error(
+        `Vote paid but contestant score missing paymentRef=${claimed.paymentRef}`,
+      );
+      await this.votePaymentModel.findByIdAndUpdate(claimed._id, {
+        $set: { applied: false },
+      });
+      return {
+        received: true,
+        processed: false,
+        type: 'Vote',
+        reason: 'score_missing',
+      };
+    }
+
+    await this.scoreModel.findByIdAndUpdate(registration.score, {
+      $inc: { voteCount: claimed.votes },
+      $set: { lastVotedAt: new Date() },
+    });
 
     this.logger.log(
-      `Webhook vote processed: paymentRef=${votePayment.paymentRef} votes=${votePayment.votes} contest=${votePayment.contest} category=${votePayment.category} registration=${votePayment.registration}`,
+      `Webhook vote processed: paymentRef=${claimed.paymentRef} votes=${claimed.votes} contest=${claimed.contest} category=${claimed.category} registration=${claimed.registration}`,
     );
 
     return {
       received: true,
       processed: true,
       type: 'Vote',
-      paymentStatus: votePayment.paymentStatus,
-      votes: votePayment.votes,
-      registrationId: String(votePayment.registration),
+      paymentStatus: claimed.paymentStatus,
+      votes: claimed.votes,
+      registrationId: String(claimed.registration),
     };
   }
 
-  private async processRegistrationWebhook(registration: RegistrationDocument) {
+  private async processRegistrationWebhook(
+    registration: RegistrationDocument,
+  ) {
     this.logger.log(
       `Webhook matched registration email=${registration.email} paymentRef=${registration.paymentRef} currentStatus=${registration.paymentStatus}`,
     );
@@ -357,16 +456,127 @@ export class PaymentService {
     }
 
     const verifiedStatus = String(verified.data?.status ?? '').toLowerCase();
-    registration.paymentStatus = verifiedStatus || 'failed';
-    await registration.save();
+
+    if (!this.isPaidStatus(verifiedStatus)) {
+      await this.registrationModel.findByIdAndUpdate(registration._id, {
+        $set: { paymentStatus: verifiedStatus || 'failed' },
+      });
+      return {
+        received: true,
+        processed: true,
+        type: 'Registration',
+        paymentStatus: verifiedStatus || 'failed',
+      };
+    }
+
+    const expectedAmount = await this.resolveRegistrationExpectedAmount(
+      registration,
+    );
+    const amountCheck = this.assertPaidAmountMatches(
+      expectedAmount,
+      verified.data,
+    );
+    if (!amountCheck.ok) {
+      this.logger.error(
+        `Registration amount mismatch paymentRef=${registration.paymentRef} expected=${expectedAmount} paid=${amountCheck.paid} currency=${amountCheck.currency}`,
+      );
+      return {
+        received: true,
+        processed: false,
+        type: 'Registration',
+        reason: 'amount_mismatch',
+        expected: expectedAmount,
+        paid: amountCheck.paid,
+        currency: amountCheck.currency,
+      };
+    }
+
+    // Atomic mark-paid — only one concurrent webhook can succeed.
+    const updated = await this.registrationModel.findOneAndUpdate(
+      {
+        _id: registration._id,
+        paymentStatus: { $nin: ['successful', 'success', 'succeeded'] },
+      },
+      {
+        $set: {
+          paymentStatus: verifiedStatus,
+          expectedAmount,
+        },
+      },
+      { new: true },
+    );
+
+    if (!updated) {
+      this.logger.log(
+        `Webhook skipped: registration already paid paymentRef=${registration.paymentRef}`,
+      );
+      return { received: true, skipped: true, reason: 'already_paid' };
+    }
 
     return {
       received: true,
       processed: true,
       type: 'Registration',
-      paymentStatus: registration.paymentStatus,
+      paymentStatus: updated.paymentStatus,
       paymentType: verified.data?.payment_type,
     };
+  }
+
+  private async resolveRegistrationExpectedAmount(
+    registration: RegistrationDocument,
+  ): Promise<number> {
+    const stored = Number(registration.expectedAmount);
+    if (Number.isFinite(stored) && stored > 0) {
+      return stored;
+    }
+
+    try {
+      const category = await this.categoryModel
+        .findById(registration.categoryId)
+        .select('price')
+        .lean()
+        .exec();
+      const price = Number(category?.price);
+      if (Number.isFinite(price) && price > 0) {
+        return price;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not resolve category price for registration ${registration._id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    return 0;
+  }
+
+  private assertPaidAmountMatches(
+    expected: number,
+    data: { amount?: number; charged_amount?: number; currency?: string } | null
+      | undefined,
+  ): { ok: boolean; paid: number; currency: string } {
+    const currency = String(data?.currency ?? '')
+      .trim()
+      .toUpperCase();
+    const paid = Number(
+      data?.charged_amount != null ? data.charged_amount : data?.amount,
+    );
+
+    if (!Number.isFinite(expected) || expected <= 0) {
+      return { ok: false, paid, currency };
+    }
+    if (!Number.isFinite(paid)) {
+      return { ok: false, paid: NaN, currency };
+    }
+    if (currency && currency !== this.expectedCurrency) {
+      return { ok: false, paid, currency };
+    }
+    if (Math.abs(paid - expected) >= 0.01) {
+      return { ok: false, paid, currency };
+    }
+
+    return { ok: true, paid, currency: currency || this.expectedCurrency };
   }
 
   private extractTxRefs(event: FlutterwaveWebhookEvent): string[] {

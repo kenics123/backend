@@ -4,7 +4,6 @@ import {
   Post,
   Body,
   Param,
-  Delete,
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
@@ -18,6 +17,10 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { CloudinaryUploadResponse } from 'src/types/types';
+import {
+  assertAllowedImageFiles,
+  imageFileFilter,
+} from 'src/common/image-upload';
 
 @Controller('registration')
 export class RegistrationController {
@@ -74,6 +77,7 @@ export class RegistrationController {
   @UseInterceptors(
     FilesInterceptor('files', 6, {
       limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: imageFileFilter,
     }),
   )
   async create(
@@ -81,6 +85,7 @@ export class RegistrationController {
     createRegistrationDto: CreateRegistrationDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
+    assertAllowedImageFiles(files || []);
     const uploadedImages =
       await this.fileService.uploadMultipleToCloudinary(files);
     const imagesUrl = uploadedImages.map(
@@ -104,10 +109,5 @@ export class RegistrationController {
   })
   findOne(@Param('id') id: string) {
     return this.registrationService.findOne(id);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.registrationService.remove(id);
   }
 }

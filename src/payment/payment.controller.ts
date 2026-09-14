@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Logger,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
@@ -15,6 +17,11 @@ export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
 
   constructor(private readonly paymentService: PaymentService) {}
+
+  @Get('status')
+  async getPaymentStatus(@Query('tx_ref') txRef?: string) {
+    return this.paymentService.getPaymentStatus(txRef || '');
+  }
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)

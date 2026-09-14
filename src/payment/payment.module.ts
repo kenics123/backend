@@ -15,6 +15,10 @@ import {
   ContestantScore,
   ContestantScoreSchema,
 } from 'src/vote/schema/vote.schema';
+import {
+  Category,
+  CategorySchema,
+} from 'src/contest/schema/category.schema';
 
 @Module({
   imports: [
@@ -23,6 +27,7 @@ import {
       { name: Registration.name, schema: registrationSchema },
       { name: VotePayment.name, schema: VotePaymentSchema },
       { name: ContestantScore.name, schema: ContestantScoreSchema },
+      { name: Category.name, schema: CategorySchema },
     ]),
   ],
   controllers: [PaymentController],

@@ -22,6 +22,7 @@ import {
 import { ContestService } from 'src/contest/contest.service';
 import { PaymentService } from 'src/payment/payment.service';
 import { FlutterwaveResponse } from 'src/types/types';
+import { createPaymentRef } from 'src/common/payment-ref';
 
 @Injectable()
 export class VoteService {
@@ -94,9 +95,7 @@ export class VoteService {
       throw new BadRequestException('Vote amount must be greater than zero');
     }
 
-    const paymentRef = `vote_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const paymentRef = createPaymentRef('vote');
     const voterEmail = dto.voterEmail.toLowerCase().trim();
     const voterName = dto.voterName?.trim() || 'Voter';
     const voterPhone = dto.voterPhone?.trim() || '';
@@ -154,21 +153,32 @@ export class VoteService {
       return vote;
     }
 
+    const claimed = await this.votePaymentModel.findOneAndUpdate(
+      { _id: vote._id, applied: false },
+      { $set: { applied: true } },
+      { new: true },
+    );
+
+    if (!claimed) {
+      return this.votePaymentModel.findById(vote._id);
+    }
+
     const registration = await this.registrationModel.findById(
-      vote.registration,
+      claimed.registration,
     );
     if (!registration?.score) {
+      await this.votePaymentModel.findByIdAndUpdate(claimed._id, {
+        $set: { applied: false },
+      });
       throw new NotFoundException('Contestant score not found');
     }
 
     await this.scoreModel.findByIdAndUpdate(registration.score, {
-      $inc: { voteCount: vote.votes },
+      $inc: { voteCount: claimed.votes },
       $set: { lastVotedAt: new Date() },
     });
 
-    vote.applied = true;
-    await vote.save();
-    return vote;
+    return claimed;
   }
 
   async findByPaymentRef(paymentRef: string) {

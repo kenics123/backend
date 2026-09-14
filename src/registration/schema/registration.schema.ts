@@ -89,7 +89,11 @@ export class Registration {
   @Prop({ required: true, default: 'unpaid' })
   paymentStatus: string;
 
-  @Prop({ required: true, default: () => Date.now().toString() })
+  /** Expected registration fee in NGN (server-computed). */
+  @Prop({ required: true, min: 0, default: 0 })
+  expectedAmount: number;
+
+  @Prop({ required: true, unique: true, index: true })
   paymentRef: string;
 
   @Prop({

@@ -22,6 +22,10 @@ import { GalleryService } from './gallery.service';
 import { FileService } from 'src/file/file.service';
 import { AdminAuthGuard } from 'src/admin/guards/admin-auth.guard';
 import { CloudinaryUploadResponse } from 'src/types/types';
+import {
+  assertAllowedImageFiles,
+  imageFileFilter,
+} from 'src/common/image-upload';
 
 @ApiTags('Gallery')
 @Controller('gallery')
@@ -57,6 +61,7 @@ export class GalleryController {
   @UseInterceptors(
     FilesInterceptor('files', 20, {
       limits: { fileSize: 8 * 1024 * 1024 },
+      fileFilter: imageFileFilter,
     }),
   )
   async upload(
@@ -67,6 +72,7 @@ export class GalleryController {
       throw new BadRequestException('Please upload at least one photo');
     }
 
+    assertAllowedImageFiles(files);
     const uploaded = await this.fileService.uploadMultipleToCloudinary(files);
     const photos = uploaded.map((file: CloudinaryUploadResponse) => ({
       url: file.secure_url,

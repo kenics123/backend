@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { FlutterwaveResponse } from 'src/types/types';
 import { ContestantScore } from 'src/vote/schema/vote.schema';
 import { ContestService } from 'src/contest/contest.service';
+import { createPaymentRef } from 'src/common/payment-ref';
 
 @Injectable()
 export class RegistrationService {
@@ -113,8 +114,9 @@ export class RegistrationService {
         );
       }
 
-      const paymentRef = Date.now().toString();
+      const paymentRef = createPaymentRef('reg');
       existingForContest.paymentRef = paymentRef;
+      existingForContest.expectedAmount = amount;
       existingForContest.categoryId = category._id;
       existingForContest.category = category.slug;
       existingForContest.firstName = createRegistrationDto.firstName;
@@ -159,7 +161,7 @@ export class RegistrationService {
     }
 
     const initialScore = await this.scoreModel.create({});
-    const paymentRef = Date.now().toString();
+    const paymentRef = createPaymentRef('reg');
 
     const registration = new this.registrationModel({
       firstName: createRegistrationDto.firstName,
@@ -186,6 +188,7 @@ export class RegistrationService {
       photos: files,
       score: initialScore._id,
       paymentRef,
+      expectedAmount: amount,
       paymentStatus: 'unpaid',
     });
     await registration.save();
@@ -267,8 +270,8 @@ export class RegistrationService {
       .exec();
   }
 
-  findOne(id: string) {
-    return this.registrationModel
+  async findOne(id: string) {
+    const registration = await this.registrationModel
       .findById(id)
       .populate({
         path: 'score',
@@ -277,8 +280,18 @@ export class RegistrationService {
       .populate({
         path: 'categoryId',
         model: 'Category',
-        select: 'name slug price votingPrice description',
-      });
+        select: 'name slug votingPrice description',
+      })
+      .select(
+        'score firstName lastName bio photos height weight category categoryId dateOfBirth contest socialMedia experience achievements',
+      )
+      .exec();
+
+    if (!registration) {
+      throw new NotFoundException('Contestant not found');
+    }
+
+    return registration;
   }
 
   async findOneForAdmin(id: string) {
@@ -305,9 +318,5 @@ export class RegistrationService {
     }
 
     return registration;
-  }
-
-  remove(id: string) {
-    return `This action removes a #${id} registration`;
   }
 }
