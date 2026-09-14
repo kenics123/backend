@@ -28,7 +28,7 @@ async function bootstrap() {
 
   app.enableCors(corsOptions);
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV === 'production') {
     const config = new DocumentBuilder()
       .setTitle('Kenics API')
       .setDescription('The kenics API description')
